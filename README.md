@@ -15,7 +15,7 @@ Node.js 20+, Express 5, PostgreSQL, JWT, bcrypt, Swagger (OpenAPI 3).
 
 ## Cómo ejecutarlo
 1. Instala dependencias: `npm install`
-2. Crea una base de datos PostgreSQL vacía (local, Docker o Neon/Render).
+2. Crea una base de datos PostgreSQL vacía (local, Docker o Supabase).
 3. Copia `.env.example` como `.env` y completa `DATABASE_URL` y `JWT_SECRET`.
 4. Crea las tablas y carga datos de prueba: `npm run db:reset`
 5. Inicia la API: `npm run dev` → http://localhost:3000
@@ -73,4 +73,8 @@ npm run db:reset && npm test
 ```
 
 ## Despliegue sugerido
-API en Render o Railway, base de datos en Neon o Render PostgreSQL. Configura las mismas variables de entorno y ejecuta `npm run db:reset` una vez. En Neon usa la cadena de conexión **directa** (no la "pooled").
+- **Base de datos:** Supabase (PostgreSQL). En *Connect* usa la cadena **Session pooler** (funciona con IPv4) y pon `DATABASE_SSL=true`.
+- **API:** Render (Web Service, `npm install` / `npm start`) con las variables de entorno de arriba.
+- Carga las tablas una sola vez con `npm run db:reset` apuntando a la base de Supabase.
+
+Las fechas del negocio (boletas, vencimientos, reportes) siempre se calculan en hora de Lima con las funciones `hoy_lima()` y `dia_lima()`, sin importar la zona horaria del servidor.

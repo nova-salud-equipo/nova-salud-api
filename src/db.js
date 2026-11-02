@@ -3,10 +3,9 @@ import pg from 'pg'
 pg.types.setTypeParser(1700, (v) => Number(v)) // NUMERIC -> number
 pg.types.setTypeParser(1082, (v) => v) // DATE -> 'YYYY-MM-DD'
 
-export const ZONA = process.env.TZ_NEGOCIO || 'America/Lima'
+export const ZONA = 'America/Lima'
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  options: `-c TimeZone=${ZONA}`, // fechas en hora de Lima (boletas, vencimientos, reportes)
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 })
 

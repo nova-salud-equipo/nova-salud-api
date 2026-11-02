@@ -36,7 +36,7 @@ r.get('/', requiere('Administrador', 'Cajero'), async (req, res) => {
   const { rows } = await query(`
     SELECT v.id, v.numero, v.canal, v.metodo_pago, v.total, v.estado, v.fecha, COALESCE(c.nombre, 'Público general') AS cliente, u.nombre AS usuario
     FROM ventas v LEFT JOIN clientes c ON c.id = v.cliente_id LEFT JOIN usuarios u ON u.id = v.usuario_id
-    WHERE v.fecha >= CURRENT_DATE - ($1::int - 1) ORDER BY v.fecha DESC`, [dias])
+    WHERE dia_lima(v.fecha) >= hoy_lima() - ($1::int - 1) ORDER BY v.fecha DESC`, [dias])
   res.json(rows)
 })
 
