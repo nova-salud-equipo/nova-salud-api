@@ -11,7 +11,7 @@ export const DIAS_POR_VENCER = 30
 export const SQL_STOCK = `
   SELECT p.id,
     COALESCE((SELECT SUM(l.stock) FROM lotes l WHERE l.producto_id = p.id), 0)::int AS total,
-    COALESCE((SELECT SUM(l.stock) FROM lotes l WHERE l.producto_id = p.id AND l.fecha_vencimiento >= CURRENT_DATE), 0)::int AS vigente,
+    COALESCE((SELECT SUM(l.stock) FROM lotes l WHERE l.producto_id = p.id AND l.fecha_vencimiento >= hoy_lima()), 0)::int AS vigente,
     COALESCE((SELECT SUM(d.cantidad) FROM detalle_pedidos d JOIN pedidos_web w ON w.id = d.pedido_id
               WHERE d.producto_id = p.id AND w.estado IN ('Pendiente','Preparado')), 0)::int AS reservado,
     (SELECT MIN(l.fecha_vencimiento) FROM lotes l WHERE l.producto_id = p.id AND l.stock > 0) AS proximo_vencimiento
@@ -50,7 +50,7 @@ export async function verificarStock(db, items, productos, reservaPropia = new M
 // FEFO: descuenta primero del lote que vence antes (solo lotes vigentes).
 export async function descontarFEFO(db, productoId, cantidad, motivo, usuarioId) {
   const { rows: lotes } = await db.query(
-    'SELECT id, stock FROM lotes WHERE producto_id = $1 AND stock > 0 AND fecha_vencimiento >= CURRENT_DATE ORDER BY fecha_vencimiento, id FOR UPDATE',
+    'SELECT id, stock FROM lotes WHERE producto_id = $1 AND stock > 0 AND fecha_vencimiento >= hoy_lima() ORDER BY fecha_vencimiento, id FOR UPDATE',
     [productoId])
   let resto = cantidad
   const salidas = []
@@ -96,8 +96,8 @@ export async function calcularAlertas(db) {
     if (disp < s.stock_minimo) out.push({ id: 'sb-' + s.id, tipo: 'Stock bajo', productoId: s.id, producto: s.nombre, detalle: `${disp} unidades disponibles (mínimo ${s.stock_minimo})` })
   }
   const { rows: lotes } = await db.query(`
-    SELECT l.*, p.nombre, (l.fecha_vencimiento - CURRENT_DATE) AS dias FROM lotes l JOIN productos p ON p.id = l.producto_id
-    WHERE l.stock > 0 AND l.fecha_vencimiento <= CURRENT_DATE + $1::int ORDER BY l.fecha_vencimiento`, [DIAS_POR_VENCER])
+    SELECT l.*, p.nombre, (l.fecha_vencimiento - hoy_lima()) AS dias FROM lotes l JOIN productos p ON p.id = l.producto_id
+    WHERE l.stock > 0 AND l.fecha_vencimiento <= hoy_lima() + $1::int ORDER BY l.fecha_vencimiento`, [DIAS_POR_VENCER])
   for (const l of lotes) {
     const vencido = l.dias < 0
     out.push({

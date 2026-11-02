@@ -12,7 +12,7 @@ r.get('/', requiere(), async (_req, res) => {
   const { rows } = await query(`
     SELECT p.*, c.nombre AS categoria, pr.razon_social AS proveedor, s.total, s.vigente, s.reservado, s.proximo_vencimiento,
       COALESCE((SELECT json_agg(json_build_object('id', l.id, 'numero', l.numero, 'vence', l.fecha_vencimiento, 'stock', l.stock,
-        'dias', l.fecha_vencimiento - CURRENT_DATE) ORDER BY l.fecha_vencimiento) FROM lotes l WHERE l.producto_id = p.id), '[]') AS lotes
+        'dias', l.fecha_vencimiento - hoy_lima()) ORDER BY l.fecha_vencimiento) FROM lotes l WHERE l.producto_id = p.id), '[]') AS lotes
     FROM productos p JOIN categorias c ON c.id = p.categoria_id LEFT JOIN proveedores pr ON pr.id = p.proveedor_id
     JOIN (${SQL_STOCK}) s ON s.id = p.id WHERE p.activo ORDER BY p.codigo`)
   res.json(rows.map((p) => ({

@@ -3,6 +3,10 @@ DROP TABLE IF EXISTS detalle_pedidos, pedidos_web, movimientos_inventario, detal
   detalle_compras, compras, lotes, productos, clientes, proveedores, categorias, usuarios, roles CASCADE;
 DROP SEQUENCE IF EXISTS boleta_seq;
 
+-- El negocio trabaja en hora de Lima, sin importar la zona horaria del servidor de base de datos.
+CREATE OR REPLACE FUNCTION hoy_lima() RETURNS date LANGUAGE sql STABLE AS $$ SELECT (now() AT TIME ZONE 'America/Lima')::date $$;
+CREATE OR REPLACE FUNCTION dia_lima(t timestamptz) RETURNS date LANGUAGE sql IMMUTABLE AS $$ SELECT (t AT TIME ZONE 'America/Lima')::date $$;
+
 CREATE TABLE roles (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(30) UNIQUE NOT NULL
