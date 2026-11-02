@@ -1,0 +1,30 @@
+{
+  "name": "nova-salud-api",
+  "version": "1.0.0",
+  "description": "API REST del mini ERP de la botica Nova Salud",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:migrate": "node db/migrate.js",
+    "db:seed": "node db/seed.js",
+    "db:reset": "node db/migrate.js && node db/seed.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.1",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.9.1"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

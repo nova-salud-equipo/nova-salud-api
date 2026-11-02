@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: API Nova Salud
+  version: 1.0.0
+  description: |
+    API REST del mini ERP de la botica Nova Salud. La usan dos clientes separados:
+    el **ERP interno** (con login por rol) y la **tienda web pública** (sin login).
+
+    Roles: **Administrador** (todo), **Cajero** (ventas y pedidos web), **Almacén** (inventario y compras).
+    Para probar rutas protegidas: usa `POST /api/auth/login`, copia el `token` y pulsa **Authorize**.
+servers:
+  - url: /api
+tags:
+  - { name: Autenticación }
+  - { name: Tienda pública, description: Rutas sin login para la tienda web }
+  - { name: Inventario }
+  - { name: Ventas }
+  - { name: Compras }
+  - { name: Pedidos web }
+  - { name: Reportes }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: string, example: No hay stock suficiente de Ibuprofeno 400 mg (hay 8). } }
+    Item:
+      type: object
+      required: [productoId, cantidad]
+      properties: { productoId: { type: integer, example: 1 }, cantidad: { type: integer, example: 2 } }
+  responses:
+    Error400: { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Error401: { description: Falta iniciar sesión o el token expiró, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Error403: { description: El rol no tiene permiso, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Error409: { description: Stock insuficiente, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+security:
+  - bearer: []
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { email: { type: string, example: admin@novasalud.pe }, password: { type: string, example: admin123 } }
+      responses:
+        '200': { description: Token JWT (8 horas) y datos del usuario }
+        '401': { $ref: '#/components/responses/Error401' }
+  /auth/me:
+    get: { tags: [Autenticación], summary: Usuario de la sesión actual, responses: { '200': { description: OK }, '401': { $ref: '#/components/responses/Error401' } } }
+  /catalogo/productos:
+    get:
+      tags: [Tienda pública]
+      summary: Catálogo visible para clientes
+      description: Solo productos activos, con precio final (promoción aplicada) y disponibilidad. No muestra lotes ni costos.
+      security: []
+      responses: { '200': { description: Lista de productos } }
+  /catalogo/categorias:
+    get: { tags: [Tienda pública], summary: Categorías, security: [], responses: { '200': { description: OK } } }
+  /pedidos:
+    post:
+      tags: [Tienda pública]
+      summary: Crear pedido web (pago simulado)
+      description: Reserva el stock. El pedido aparece en el ERP como Pendiente. Con `simularFallo` devuelve 402 para mostrar el caso de pago rechazado.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, cliente, metodoPago, entrega]
+              properties:
+                items: { type: array, items: { $ref: '#/components/schemas/Item' } }
+                cliente: { type: object, properties: { nombre: { type: string, example: Ana Torres }, celular: { type: string, example: '987654321' } } }
+                metodoPago: { type: string, enum: [Yape / Plin, Tarjeta, Contra entrega] }
+                entrega: { type: string, enum: [recojo, delivery] }
+                direccion: { type: string, description: Obligatoria si entrega es delivery }
+                simularFallo: { type: boolean }
+      responses:
+        '201': { description: Pedido creado con su código (NS-1001) }
+        '400': { $ref: '#/components/responses/Error400' }
+        '402': { description: Pago rechazado (simulación) }
+        '409': { $ref: '#/components/responses/Error409' }
+    get:
+      tags: [Pedidos web]
+      summary: Listar pedidos web (ERP)
+      parameters: [{ in: query, name: estado, schema: { type: string, enum: [Pendiente, Preparado, Entregado, Cancelado] } }]
+      responses: { '200': { description: OK }, '401': { $ref: '#/components/responses/Error401' } }
+  /pedidos/seguimiento/{codigo}:
+    get:
+      tags: [Tienda pública]
+      summary: Seguimiento de un pedido
+      security: []
+      parameters:
+        - { in: path, name: codigo, required: true, schema: { type: string, example: NS-1001 } }
+        - { in: query, name: celular, required: true, schema: { type: string, example: '987654321' } }
+      responses: { '200': { description: Estado del pedido }, '404': { description: Código o celular incorrectos } }
+  /pedidos/{id}/estado:
+    patch:
+      tags: [Pedidos web]
+      summary: Cambiar estado (Administrador, Cajero)
+      description: Pendiente → Preparado → Entregado (se descuenta stock por FEFO y se genera boleta). Pendiente o Preparado → Cancelado (libera la reserva).
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, properties: { estado: { type: string, enum: [Preparado, Entregado, Cancelado] } } } } }
+      responses: { '200': { description: Pedido actualizado }, '400': { $ref: '#/components/responses/Error400' }, '403': { $ref: '#/components/responses/Error403' } }
+  /productos:
+    get: { tags: [Inventario], summary: Inventario con lotes y stock (vigente, reservado, disponible), responses: { '200': { description: OK } } }
+    post:
+      tags: [Inventario]
+      summary: Crear producto (Administrador, Almacén)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string }
+                categoriaId: { type: integer }
+                proveedorId: { type: integer }
+                presentacion: { type: string }
+                precio: { type: number }
+                stockMinimo: { type: integer }
+                requiereReceta: { type: boolean }
+      responses: { '201': { description: Creado }, '400': { $ref: '#/components/responses/Error400' }, '403': { $ref: '#/components/responses/Error403' } }
+  /productos/{id}:
+    patch:
+      tags: [Inventario]
+      summary: Cambiar precio, stock mínimo o promoción (Administrador)
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { precio: { type: number }, stockMinimo: { type: integer }, enPromocion: { type: boolean } } } } } }
+      responses: { '200': { description: OK }, '403': { $ref: '#/components/responses/Error403' } }
+  /productos/lotes/{loteId}/ajuste:
+    post:
+      tags: [Inventario]
+      summary: Ajustar stock de un lote (Administrador, Almacén)
+      parameters: [{ in: path, name: loteId, required: true, schema: { type: integer } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { nuevoStock: { type: integer }, motivo: { type: string }, tipo: { type: string, enum: [AJUSTE, BAJA] } } } } } }
+      responses: { '200': { description: OK } }
+  /productos/movimientos:
+    get: { tags: [Inventario], summary: Kárdex (últimos movimientos), responses: { '200': { description: OK } } }
+  /ventas:
+    post:
+      tags: [Ventas]
+      summary: Registrar venta de mostrador (Administrador, Cajero)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items: { type: array, items: { $ref: '#/components/schemas/Item' } }
+                metodoPago: { type: string, enum: [Efectivo, Yape / Plin, Tarjeta] }
+                cliente: { type: string }
+                recetaVerificada: { type: boolean }
+                segundosAtencion: { type: integer }
+      responses: { '201': { description: Boleta generada }, '409': { $ref: '#/components/responses/Error409' } }
+    get:
+      tags: [Ventas]
+      summary: Ventas de los últimos días
+      parameters: [{ in: query, name: dias, schema: { type: integer, default: 7 } }]
+      responses: { '200': { description: OK } }
+  /ventas/{id}:
+    get: { tags: [Ventas], summary: Detalle de una boleta, parameters: [{ in: path, name: id, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+  /ventas/{id}/anular:
+    post: { tags: [Ventas], summary: Anular venta y devolver stock (Administrador), parameters: [{ in: path, name: id, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+  /compras:
+    post:
+      tags: [Compras]
+      summary: Registrar compra con lotes (Administrador, Almacén)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proveedorId: { type: integer }
+                factura: { type: string }
+                fecha: { type: string, format: date }
+                lineas:
+                  type: array
+                  items: { type: object, properties: { productoId: { type: integer }, lote: { type: string }, vence: { type: string, format: date }, cantidad: { type: integer }, costo: { type: number } } }
+      responses: { '201': { description: Compra registrada }, '400': { $ref: '#/components/responses/Error400' } }
+    get: { tags: [Compras], summary: Historial de compras, responses: { '200': { description: OK } } }
+  /compras/proveedores:
+    get: { tags: [Compras], summary: Proveedores, responses: { '200': { description: OK } } }
+  /reportes/resumen:
+    get: { tags: [Reportes], summary: Datos del dashboard, responses: { '200': { description: OK } } }
+  /reportes/alertas:
+    get: { tags: [Reportes], summary: Alertas de stock bajo, por vencer y vencidos, responses: { '200': { description: OK } } }
+  /reportes/ventas:
+    get:
+      tags: [Reportes]
+      summary: Reporte de ventas (Administrador)
+      parameters: [{ in: query, name: dias, schema: { type: integer, default: 7 } }]
+      responses: { '200': { description: KPIs, top productos, por categoría, por método y por canal } }
