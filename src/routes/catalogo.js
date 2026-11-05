@@ -7,7 +7,7 @@ const r = Router()
 
 r.get('/productos', async (_req, res) => {
   const { rows } = await query(`
-    SELECT p.id, p.nombre, p.presentacion, p.precio, p.en_promocion, p.requiere_receta, c.nombre AS categoria, s.vigente, s.reservado
+    SELECT p.id, p.nombre, p.presentacion, p.precio, p.en_promocion, p.requiere_receta, p.contiene_aine, c.nombre AS categoria, s.vigente, s.reservado
     FROM productos p JOIN categorias c ON c.id = p.categoria_id JOIN (${SQL_STOCK}) s ON s.id = p.id
     WHERE p.activo ORDER BY c.nombre, p.nombre`)
   res.json(rows.map((p) => {
@@ -15,6 +15,7 @@ r.get('/productos', async (_req, res) => {
     return {
       id: p.id, nombre: p.nombre, presentacion: p.presentacion, categoria: p.categoria,
       precio: Number(p.precio), precioFinal: precioFinal(p), enPromocion: p.en_promocion, requiereReceta: p.requiere_receta,
+      contieneAine: p.contiene_aine,
       disponible: Math.min(disponible, 20), // la tienda solo necesita saber si hay y un tope por pedido
       agotado: disponible === 0,
     }

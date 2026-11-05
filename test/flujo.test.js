@@ -99,6 +99,18 @@ test('la tienda no permite delivery de productos con receta ni pagos fallidos', 
   assert.equal((await api('POST', '/pedidos', { items: [{ productoId: 1, cantidad: 1 }], cliente: cli, metodoPago: 'Tarjeta', entrega: 'recojo', simularFallo: true })).status, 402)
 })
 
+test('los productos con AINE llegan marcados a la tienda y al ERP', async () => {
+  const catalogo = (await api('GET', '/catalogo/productos')).body
+  assert.equal(catalogo.find((p) => p.nombre === 'Ibuprofeno 400 mg').contieneAine, true)
+  assert.equal(catalogo.find((p) => p.nombre === 'Paracetamol 500 mg').contieneAine, false)
+  const lora = await producto('Loratadina 10 mg')
+  assert.equal(lora.contieneAine, false)
+  assert.equal((await api('PATCH', `/productos/${lora.id}`, { contieneAine: true }, 'almacen')).status, 403)
+  assert.equal((await api('PATCH', `/productos/${lora.id}`, { contieneAine: true }, 'admin')).status, 200)
+  assert.equal((await producto('Loratadina 10 mg')).contieneAine, true)
+  await api('PATCH', `/productos/${lora.id}`, { contieneAine: false }, 'admin')
+})
+
 test('una compra crea el lote y sube el stock', async () => {
   const ibu = await producto('Ibuprofeno 400 mg')
   const r = await api('POST', '/compras', { proveedorId: 1, factura: 'F001-TEST', fecha: '2026-11-02', lineas: [{ productoId: ibu.id, lote: 'NUEVO-1', vence: '2028-01-01', cantidad: 50, costo: 5.2 }] }, 'almacen')

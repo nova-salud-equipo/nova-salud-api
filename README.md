@@ -76,5 +76,6 @@ npm run db:reset && npm test
 - **Base de datos:** Supabase (PostgreSQL). En *Connect* usa la cadena **Session pooler** (funciona con IPv4) y pon `DATABASE_SSL=true`.
 - **API:** Render (Web Service, `npm install` / `npm start`) con las variables de entorno de arriba.
 - Carga las tablas una sola vez con `npm run db:reset` apuntando a la base de Supabase.
+- Si tu base ya tenía datos de antes de la advertencia de AINEs, corre `npm run db:aine`. Agrega la columna `contiene_aine` sin borrar nada y marca los AINEs más comunes por su nombre (ibuprofeno, naproxeno, aspirina, diclofenaco, etc.).
 
 Las fechas del negocio (boletas, vencimientos, reportes) siempre se calculan en hora de Lima con las funciones `hoy_lima()` y `dia_lima()`, sin importar la zona horaria del servidor.

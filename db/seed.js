@@ -38,6 +38,9 @@ const PRODUCTOS = [
   ['Multivitamínico adulto', 4, 'Frasco x 60 tabletas', 29.9, 8, false, 3, [['MV2509-A', 665, 25]]],
 ]
 
+// Productos que contienen un AINE (antiinflamatorio no esteroideo): la tienda y el ERP muestran una advertencia.
+const AINES = new Set(['Ibuprofeno 400 mg', 'Aspirina 100 mg', 'Naproxeno 550 mg', 'Diclofenaco gel 30 g'])
+
 function rng(seed) {
   return () => {
     seed |= 0; seed = (seed + 0x6d2b79f5) | 0
@@ -62,8 +65,8 @@ try {
   for (const [i, [nombre, cat, pres, precio, min, receta, prov, lotes]] of PRODUCTOS.entries()) {
     const codigo = 'MED-' + String(i + 1).padStart(4, '0')
     const { rows: [p] } = await db.query(
-      'INSERT INTO productos (codigo, nombre, categoria_id, proveedor_id, presentacion, precio, stock_minimo, requiere_receta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-      [codigo, nombre, cat + 1, prov + 1, pres, precio, min, receta])
+      'INSERT INTO productos (codigo, nombre, categoria_id, proveedor_id, presentacion, precio, stock_minimo, requiere_receta, contiene_aine) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+      [codigo, nombre, cat + 1, prov + 1, pres, precio, min, receta, AINES.has(nombre)])
     for (const [num, d, stock] of lotes) {
       const { rows: [l] } = await db.query('INSERT INTO lotes (producto_id, numero, fecha_vencimiento, stock) VALUES ($1,$2,$3,$4) RETURNING id', [p.id, num, dia(d), stock])
       await db.query("INSERT INTO movimientos_inventario (lote_id, tipo, cantidad, motivo, usuario_id, fecha) VALUES ($1,'ENTRADA',$2,'Inventario inicial',3, now() - interval '8 days')", [l.id, stock])

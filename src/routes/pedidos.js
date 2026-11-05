@@ -90,7 +90,7 @@ async function detallePedido(id) {
       c.nombre AS cliente, c.celular, v.numero AS boleta
     FROM pedidos_web w JOIN clientes c ON c.id = w.cliente_id LEFT JOIN ventas v ON v.id = w.venta_id WHERE w.id = $1`, [id])
   const { rows: items } = await query(`
-    SELECT d.producto_id AS "productoId", p.nombre, d.cantidad, d.precio_unitario AS precio, p.requiere_receta AS "requiereReceta"
+    SELECT d.producto_id AS "productoId", p.nombre, d.cantidad, d.precio_unitario AS precio, p.requiere_receta AS "requiereReceta", p.contiene_aine AS "contieneAine"
     FROM detalle_pedidos d JOIN productos p ON p.id = d.producto_id WHERE d.pedido_id = $1 ORDER BY d.id`, [id])
   return { ...p, items }
 }

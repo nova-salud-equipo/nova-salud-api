@@ -44,6 +44,7 @@ CREATE TABLE productos (
   precio NUMERIC(10,2) NOT NULL CHECK (precio > 0),
   stock_minimo INT NOT NULL DEFAULT 10 CHECK (stock_minimo >= 0),
   requiere_receta BOOLEAN NOT NULL DEFAULT FALSE,
+  contiene_aine BOOLEAN NOT NULL DEFAULT FALSE, -- antiinflamatorio no esteroideo: advertencia para alérgicos
   en_promocion BOOLEAN NOT NULL DEFAULT FALSE,
   activo BOOLEAN NOT NULL DEFAULT TRUE
 );

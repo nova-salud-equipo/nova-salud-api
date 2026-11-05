@@ -130,13 +130,14 @@ paths:
                 precio: { type: number }
                 stockMinimo: { type: integer }
                 requiereReceta: { type: boolean }
+                contieneAine: { type: boolean, description: 'Contiene un AINE (advertencia para alérgicos)' }
       responses: { '201': { description: Creado }, '400': { $ref: '#/components/responses/Error400' }, '403': { $ref: '#/components/responses/Error403' } }
   /productos/{id}:
     patch:
       tags: [Inventario]
-      summary: Cambiar precio, stock mínimo o promoción (Administrador)
+      summary: Cambiar precio, stock mínimo, promoción o marca AINE (Administrador)
       parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
-      requestBody: { content: { application/json: { schema: { type: object, properties: { precio: { type: number }, stockMinimo: { type: integer }, enPromocion: { type: boolean } } } } } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { precio: { type: number }, stockMinimo: { type: integer }, enPromocion: { type: boolean }, contieneAine: { type: boolean } } } } } }
       responses: { '200': { description: OK }, '403': { $ref: '#/components/responses/Error403' } }
   /productos/lotes/{loteId}/ajuste:
     post:

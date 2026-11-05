@@ -18,7 +18,7 @@ r.get('/', requiere(), async (_req, res) => {
   res.json(rows.map((p) => ({
     id: p.id, codigo: p.codigo, nombre: p.nombre, categoria: p.categoria, categoriaId: p.categoria_id, proveedor: p.proveedor,
     presentacion: p.presentacion, precio: Number(p.precio), precioFinal: precioFinal(p), stockMinimo: p.stock_minimo,
-    requiereReceta: p.requiere_receta, enPromocion: p.en_promocion,
+    requiereReceta: p.requiere_receta, contieneAine: p.contiene_aine, enPromocion: p.en_promocion,
     stockTotal: p.total, vigente: p.vigente, reservado: p.reservado, disponible: p.vigente - p.reservado,
     proximoVencimiento: p.proximo_vencimiento, lotes: p.lotes,
   })))
@@ -34,15 +34,15 @@ r.post('/', requiere(ADMIN, ALMACEN), async (req, res) => {
   const producto = await tx(async (db) => {
     const { rows: [{ n }] } = await db.query('SELECT COALESCE(MAX(id),0) + 1 AS n FROM productos')
     const { rows: [p] } = await db.query(
-      `INSERT INTO productos (codigo, nombre, categoria_id, proveedor_id, presentacion, precio, stock_minimo, requiere_receta)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      ['MED-' + String(n).padStart(4, '0'), nombre, categoriaId, b.proveedorId || null, presentacion, precio, stockMinimo, Boolean(b.requiereReceta)])
+      `INSERT INTO productos (codigo, nombre, categoria_id, proveedor_id, presentacion, precio, stock_minimo, requiere_receta, contiene_aine)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      ['MED-' + String(n).padStart(4, '0'), nombre, categoriaId, b.proveedorId || null, presentacion, precio, stockMinimo, Boolean(b.requiereReceta), Boolean(b.contieneAine)])
     return p
   })
   res.status(201).json(producto)
 })
 
-// Cambios de precio, mínimo o promoción: solo el administrador.
+// Cambios de precio, mínimo, promoción o marca AINE: solo el administrador.
 r.patch('/:id', requiere(ADMIN), async (req, res) => {
   const id = entero(req.params.id, 'id', 1)
   const campos = []
@@ -50,6 +50,7 @@ r.patch('/:id', requiere(ADMIN), async (req, res) => {
   if (req.body.precio !== undefined) { vals.push(decimal(req.body.precio, 'El precio')); campos.push(`precio = $${vals.length}`) }
   if (req.body.stockMinimo !== undefined) { vals.push(entero(req.body.stockMinimo, 'El stock mínimo')); campos.push(`stock_minimo = $${vals.length}`) }
   if (req.body.enPromocion !== undefined) { vals.push(Boolean(req.body.enPromocion)); campos.push(`en_promocion = $${vals.length}`) }
+  if (req.body.contieneAine !== undefined) { vals.push(Boolean(req.body.contieneAine)); campos.push(`contiene_aine = $${vals.length}`) }
   if (!campos.length) throw badRequest('No enviaste ningún cambio.')
   vals.push(id)
   const { rows: [p] } = await query(`UPDATE productos SET ${campos.join(', ')} WHERE id = $${vals.length} RETURNING *`, vals)
