@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { query, tx } from '../db.js'
+import { hoy as hoyLima, query, tx } from '../db.js'
 import { requiere } from '../middlewares/auth.js'
 import { SQL_STOCK, precioFinal } from '../services/inventario.js'
 import { badRequest, notFound } from '../errors.js'
-import { decimal, entero, texto } from '../validar.js'
+import { decimal, entero, fecha, texto } from '../validar.js'
 
 const r = Router()
 const ADMIN = 'Administrador', ALMACEN = 'Almacén'
@@ -31,12 +31,29 @@ r.post('/', requiere(ADMIN, ALMACEN), async (req, res) => {
   const precio = decimal(b.precio, 'El precio')
   const stockMinimo = entero(b.stockMinimo ?? 10, 'El stock mínimo')
   const presentacion = typeof b.presentacion === 'string' && b.presentacion.trim() ? b.presentacion.trim() : 'Unidad'
+  // Stock inicial opcional: entra como un lote, igual que en una compra (con vencimiento, para FEFO).
+  let inicial = null
+  if (b.stockInicial) {
+    inicial = {
+      cantidad: entero(b.stockInicial.cantidad, 'La cantidad inicial', 1),
+      numero: texto(b.stockInicial.lote, 'El N° de lote', 2, 30),
+      vence: fecha(b.stockInicial.vence, 'El vencimiento'),
+    }
+    if (inicial.vence <= hoyLima()) throw badRequest(`El lote ${inicial.numero} ya está vencido o vence hoy. No se puede ingresar.`)
+  }
   const producto = await tx(async (db) => {
     const { rows: [{ n }] } = await db.query('SELECT COALESCE(MAX(id),0) + 1 AS n FROM productos')
     const { rows: [p] } = await db.query(
       `INSERT INTO productos (codigo, nombre, categoria_id, proveedor_id, presentacion, precio, stock_minimo, requiere_receta)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       ['MED-' + String(n).padStart(4, '0'), nombre, categoriaId, b.proveedorId || null, presentacion, precio, stockMinimo, Boolean(b.requiereReceta)])
+    if (inicial) {
+      const { rows: [lote] } = await db.query(
+        'INSERT INTO lotes (producto_id, numero, fecha_vencimiento, stock) VALUES ($1,$2,$3,$4) RETURNING id',
+        [p.id, inicial.numero, inicial.vence, inicial.cantidad])
+      await db.query("INSERT INTO movimientos_inventario (lote_id, tipo, cantidad, motivo, usuario_id) VALUES ($1,'ENTRADA',$2,'Stock inicial',$3)",
+        [lote.id, inicial.cantidad, req.user.id])
+    }
     return p
   })
   res.status(201).json(producto)

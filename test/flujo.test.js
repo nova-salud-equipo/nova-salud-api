@@ -107,3 +107,22 @@ test('una compra crea el lote y sube el stock', async () => {
   const vencido = await api('POST', '/compras', { proveedorId: 1, factura: 'F001-TEST2', fecha: '2026-11-02', lineas: [{ productoId: ibu.id, lote: 'VIEJO', vence: '2020-01-01', cantidad: 5, costo: 5 }] }, 'almacen')
   assert.equal(vencido.status, 400)
 })
+
+test('crear producto con stock inicial carga el lote y el kárdex', async () => {
+  const base = { categoriaId: 1, precio: 12.5, stockMinimo: 10 }
+  const r = await api('POST', '/productos', { ...base, nombre: 'Producto Test Inicial', stockInicial: { cantidad: 10, lote: 'INI-1', vence: '2028-06-30' } }, 'almacen')
+  assert.equal(r.status, 201)
+  const p = await producto('Producto Test Inicial')
+  assert.equal(p.disponible, 10)
+  assert.equal(p.lotes.length, 1)
+  assert.equal(p.lotes[0].numero, 'INI-1')
+  const mov = (await api('GET', '/productos/movimientos', null, 'admin')).body.find((m) => m.producto === 'Producto Test Inicial')
+  assert.equal(mov.tipo, 'ENTRADA')
+  assert.equal(mov.cantidad, 10)
+  // Sin stock inicial se crea en 0, y un lote vencido no se acepta (ni se crea el producto).
+  assert.equal((await api('POST', '/productos', { ...base, nombre: 'Producto Test Sin Stock' }, 'almacen')).status, 201)
+  assert.equal((await producto('Producto Test Sin Stock')).disponible, 0)
+  const vencido = await api('POST', '/productos', { ...base, nombre: 'Producto Test Vencido', stockInicial: { cantidad: 5, lote: 'V-1', vence: '2020-01-01' } }, 'almacen')
+  assert.equal(vencido.status, 400)
+  assert.equal(await producto('Producto Test Vencido'), undefined)
+})

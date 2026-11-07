@@ -130,6 +130,13 @@ paths:
                 precio: { type: number }
                 stockMinimo: { type: integer }
                 requiereReceta: { type: boolean }
+                stockInicial:
+                  type: object
+                  description: Opcional. Crea el primer lote del producto y lo registra como ENTRADA en el kárdex.
+                  properties:
+                    cantidad: { type: integer, minimum: 1 }
+                    lote: { type: string, example: L-2611 }
+                    vence: { type: string, format: date, description: Debe ser posterior a hoy (hora de Lima) }
       responses: { '201': { description: Creado }, '400': { $ref: '#/components/responses/Error400' }, '403': { $ref: '#/components/responses/Error403' } }
   /productos/{id}:
     patch:
